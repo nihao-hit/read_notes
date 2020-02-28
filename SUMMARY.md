@@ -8,8 +8,8 @@
     * [send_syn](./mptcp阅读笔记/创建主流函数调用栈/send_syn.md)
     * [rcv_syn](./mptcp阅读笔记/创建主流函数调用栈/rcv_syn.md)
     * [rcv_syn-ack](./mptcp阅读笔记/创建主流函数调用栈/rcv_syn-ack.md)
-    * [rcv_ack](./mptcp阅读笔记/创建主流函数调用栈/rck_ack.md)  
+    * [rcv_ack](./mptcp阅读笔记/创建主流函数调用栈/rcv_ack.md)  
   * 创建子流函数调用栈
-    * [send_syn](./mptcp阅读笔记/创建流函数调用栈/send_syn.md)
-    * [rcv_syn](./mptcp阅读笔记/创建流函数调用栈/rcv_syn.md)
-    * [rcv_syn-ack](./mptcp阅读笔记/创建流函数调用栈/rcv_syn-ack.md)
+    * [send_syn](./mptcp阅读笔记/创建子流函数调用栈/send_syn.md)
+    * [rcv_syn](./mptcp阅读笔记/创建子流函数调用栈/rcv_syn.md)
+    * [rcv_syn-ack](./mptcp阅读笔记/创建子流函数调用栈/rcv_syn-ack.md)
