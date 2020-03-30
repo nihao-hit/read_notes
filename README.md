@@ -16,7 +16,7 @@
 > git commit -m "fix(core): remove deprecated and defunct wtf* apis" -m "These apis have been deprecated in v8, so they should stick around till v10, but since they are defunct we are removing them early so that they don't take up payload size." -m "PR Close #33949"
 > ```
 
-![提交示例](X:\Program\read_notes\images\final-commit-message.png)
+![提交示例](./images/final-commit-message.png)
 
 ### 改动类型
 
