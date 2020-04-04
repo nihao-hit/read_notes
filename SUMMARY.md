@@ -16,3 +16,10 @@
   * 关键文件阅读笔记
     * [mptcp_fullmesh.c阅读笔记](./mptcp阅读笔记/关键文件阅读笔记/mptcp_fullmesh.c阅读笔记.md)
 * [Linux内核设计与实现（第三版）](./Linux内核设计与实现（第三版）/Linux内核设计与实现（第三版）.md)
+* 杂记
+  * [C++：内存排序](./杂记/C++：内存排序.md)
+  * [C++：右值引用与转移语义](./杂记/C++：右值引用与转移语义.md)
+  * [Linux：IO模型与select epoll实现](./杂记/Linux：IO模型与select epoll实现.md)
+  * [Linux：网络协议栈性能优化机制](./杂记/Linux：网络协议栈性能优化机制.md)
+  * [Linux：硬链接与软链接](./杂记/Linux：硬链接与软链接.md)
+  * [服务端编程：Reactor与Proacter](./杂记/服务端编程：Reactor与Proacter.md)
