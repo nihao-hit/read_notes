@@ -6,7 +6,7 @@
 
 本书基于Linux内核2.6.34版。
 
-![图](./images/Linux内核设计与实现（第三版）.jpg)
+![图](./images/Linux内核设计与实现（第三版）.png)
 
 ## 第1章 Linux内核简介
 
