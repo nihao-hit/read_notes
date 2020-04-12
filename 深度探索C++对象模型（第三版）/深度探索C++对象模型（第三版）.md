@@ -2,6 +2,8 @@
 
 [TOC]
 
+![图](./images/思维导图.png)
+
 ## 第1章 关于对象（Object Lessons）
 
 1. C++对象模型
@@ -9,15 +11,15 @@
    + 在C++中，有两种类数据成员：static和nonstatic，以及三种类成员函数：static、nonstatic和virtual。对下面的class Point声明：
 
    + ```c++
-     :class Point {
-     :public:
+     class Point {
+     public:
          Point(float xval);
          virtual ~Point();
          
          float x() const;
          static int PointCount();
      protected:
-         virtual ostream&amp; print(ostream&amp; os) const;
+         virtual ostream& print(ostream& os) const;
          float _x;
          static int _point_count;
      }
@@ -39,7 +41,7 @@
 
    + C++编译器对源代码做了如下修改：
 
-     + RVO返回值优化
+     + NRVO命名返回值优化
      + 将new关键字扩展为new()与对象构造函数调用。
      + 将delete关键字扩展为对象析构函数调用与delete()。
      + 使用虚机制扩展多态函数调用。
@@ -71,7 +73,7 @@
 3. 需要多少内存才能够表现一个C++对象？一般而言要有：
    + 其nonstatic数据成员的总和大小。
    + 加上任何由于align的需求而padding（填补）上去的空间。
-   + 加上为了支持virtual而由内部产生的任何额外负担。（vtbl，还有什么？）
+   + 加上为了支持virtual而由内部产生的任何额外负担。（vptr）
 4. 继承体系中vptr如何放置？
    + 如图所示：单一继承下（多重继承和虚拟继承情况不同），派生对象Bear()与基对象ZooAnimal()共享基对象的vptr，这份vptr的内容在指针或引用发生类型转换时不需要修改，但是编译器如何为一个继承体系下的基对象与派生对象分别初始化vptr？
    + ![图](./images/继承体系内存布局.png)
@@ -108,7 +110,7 @@
 
       + 对象有虚函数（声明或继承）：编译期间会产生两个扩张操作：i 编译器产生一个vtbl，存放类的虚函数地址和type_info对象地址；ii 类的每个对象会多出一个vptr指针指向vtbl。
 
-      + 对象使用了虚继承：如何使虚基类在其每一个派生类对象内存模型中的位置，能够于运行期准备妥当。（多态？）
+      + 对象使用了虚继承：如何使虚基类在其每一个派生类对象内存模型中的位置，能够于运行期准备妥当。（虚基类在派生类中的类偏移）
 
         + ```c++
           class X {
@@ -131,14 +133,14 @@
 
 4. 在C++各个不同的编译单元中，编译器如何避免**定义**出多个**默认构造函数**？
    
-+ 解决办法是把**定义**的**默认构造函数**、**拷贝构造函数**、**析构函数**、**拷贝赋值运算符**都以inline方式完成。一个inline函数有静态链接期（static linkage），不会被编译单元以外者看到。如果函数太复杂，不适合做成inline，就会**定义**成一个explicit non-inline static实体？
-  
+   + 解决办法是把**定义**的**默认构造函数**、**拷贝构造函数**、**析构函数**、**拷贝赋值运算符**都以inline方式完成。一个inline函数有静态链接期（static linkage），不会被编译单元以外者看到。如果函数太复杂，不适合做成inline，就会**定义**成一个explicit non-inline static实体？
+   
 5. 编译器什么时候会为类声明、定义**拷贝构造函数**？
 
    + **声明（declare）**：如果用户程序没有声明**拷贝构造函数**，那么编译器会声明一个implicite**拷贝构造函数**，这样的声明是trivial（无用的）。
    + **定义（define）**：只有当编译器需要声明的implicite拷贝构造函数执行某些编译器所需的行动，这时编译器会在需要调用拷贝构造函数的地方开始**定义**拷贝构造函数。这样的定义是nontrivial（有用的）。
 
-6. 什么情况下编译器需要对象的**拷贝构造函数**完成某些必需的操作？
+6. 什么情况下编译器需要对象的**拷贝构造函数**完成某些必需的操作？：只有当对象具有memberwise copy semantics拷贝语义的时候，编译器会**定义**拷贝构造函数完成必要操作。
 
    + 拷贝语义：区分数据成员是内建基本数据类型还是对象。
 
@@ -188,7 +190,7 @@
    + 由编译器添加的数据成员，用以支持某些语言特性（主要是各种virtual特性：vptr、虚基类偏移）；
    + 对齐；
    + 编译器对于特殊情况所提供的可能的优化处理：（不同编译器对特殊情况的处理并不相同）
-     + 对于一个空类，编译器需要插入一个字节的占位符；而对于空的虚基类，某些编译器可能优化掉派生类对象中虚基类的占位符。
+     + 空基类优化：对于一个空类，编译器需要插入一个字节的占位符；而对于空的基类，某些编译器可能优化掉派生类对象中基类的占位符。
    
 2. 虚继承对象内存模型示例
 
@@ -199,7 +201,7 @@
      class A : public Y, public Z {};
      ```
 
-   + 如下图所示：（编译器：gcc version 8.1.0 (x86_64-posix-sjlj-rev0, Built by MinGW-W64 project；系统：X86_64）
+   + 如下图所示：（编译器：gcc version 8.1.0 (x86_64-posix-sjlj-rev0, Built by MinGW-W64 project）
 
      + X为空类，编译器插入一字节的占位符，用于为不同对象在内存中配置独一无二的地址；
      + Y，Z各持有一个指向虚基类子对象起始地址的指针，这里编译器优化掉了X子对象的占位符。
@@ -207,7 +209,7 @@
    
    + ![图](./images/虚继承对象内存模型示例.png)
    
-   + 别的编译器可能不会优化空虚基类的占位符，编译器之间的潜在差异正说明了C++对象模型的演化。这个模型为一般情况提供了解决之道。当特殊情况逐渐被挖掘出来时，种种启发（尝试错误）法于是被引入，提供优化的处理。如果成功，启发法于是就提升为普遍的策略，并跨越各种编译器而合并。它被视为标准（虽然它并不被规范为标准），久而久之也就成了语言的一部分。vtbl是一个好例子，另一个例子是NRVO。
+   + 别的编译器可能不会优化空基类的占位符，编译器之间的潜在差异正说明了C++对象模型的演化。这个模型为一般情况提供了解决之道。当特殊情况逐渐被挖掘出来时，种种启发（尝试错误）法于是被引入，提供优化的处理。如果成功，启发法于是就提升为普遍的策略，并跨越各种编译器而合并。它被视为标准（虽然它并不被规范为标准），久而久之也就成了语言的一部分。vtbl是一个好例子，另一个例子是NRVO。
 
 3. 数据成员的绑定时机
 
@@ -272,7 +274,7 @@
    + 可以通过指向数据成员的指针判断vptr在对象内存布局中的位置
 
      + ```c++
-       //在我的平台上（编译器：gcc version 8.1.0 (x86_64-posix-sjlj-rev0, Built by MinGW-W64 project；系统：X86_64）
+       //在我的平台上（gcc version 8.1.0 (x86_64-posix-sjlj-rev0, Built by MinGW-W64 project)）
        //三个数据成员的类偏移分别为8、12、16，因此vptr位于对象开头。
        class Point {
        public:
@@ -337,7 +339,7 @@ Point3d Point3d::normalize() const{			void normalize_7Point3dFv(
 
 5. 多重继承体系下的虚函数支持
 
-   + 在多重继承下，派生类中含有与上一层基类个数相同的vtbls和vptrs，通过名称修饰机制解决访问控制与名称冲突问题。如本例中的vtbl_Derived、vptr_Derived和vtbl_Base2_Derived、vptr_Derived。
+   + 在多重继承下，派生类中含有与上一层基类个数相同的vtbls和vptrs，通过名称修饰机制解决访问控制与名称冲突问题。如本例中的vtbl_Derived、vptr_Derived和vtbl_Base2_Derived、vptr_Base2_Derived。
 
    + 当将一个Derived对象地址指定给一个Base1指针或Derived指针时，被处理的vtbl是主虚表vtbl_Derived；而当指定给一个Base2指针时，被处理的vtbl是次虚表vtbl_Base2_Derived。
 
@@ -359,7 +361,7 @@ Point3d Point3d::normalize() const{			void normalize_7Point3dFv(
      2.第二种情况：使用Derived指针调用从Base2继承而来的虚函数
      Derived* ptr = new Derived;
      //调用Base2::mumble(),ptr必须向前调整sizeof(Base1)个字节
-     ptr->mumble();//这里为什么是调用Base2::mumble()，是不是前述的赋值语句是这样的：Derived* ptr = new Base2;但这个向下转型是错误的。
+     ptr->mumble();
      
      3.第三种情况：支持虚函数返回值不同的这样一个语言的扩充性质：可以返回基类对象，也可返回派生类对象。
      Base2* pb1 = new Derived;
@@ -396,9 +398,200 @@ Point3d Point3d::normalize() const{			void normalize_7Point3dFv(
 8. inline函数
 
    + 关键词inline只是一个请求，如果这个请求被接收，编译器就必须认为它可以用一个表达式合理地将这个函数扩展开来。如果不能，那么这个请求会被驳回。
-
    + 编译器通过测试扩展前后函数调用的各种操作的开销对比来判断是否能合理扩展。
-
    + 如果inline函数被展开，编译器可能需要为形式参数或局部变量生成大量临时对象。
-
    + 此外，inine中再有inline，可能导致一个表面上看起来平凡的inline却因其连锁复杂度而没办法扩展开来。这种情况可能发生于复杂继承体系下的构造函数，或是其他一些表面上并不正确的inline调用组成的串联——它们每一个都会执行一小组运算，然后对另一个对象发出请求。
+## 第5章 构造、析构、拷贝语义学（The Semantics of Constructor、Destructor and Copy）
+
+1. 构造语义学：POD（plain old data：简单数据类型）类型构造语义示例
+
+   + 对一个POD类型，观念上编译器会为它声明一个无用的默认构造函数、拷贝构造函数、拷贝赋值运算符、析构函数。但实际上，编译器会分析POD类型的声明，为它贴上POD标签，除此之外编译器什么也不做。
+
+   + ```c++
+     struct POD {int a, b, c;};
+     //编译器并未为POD定义默认构造函数
+     POD pod;
+     //编译器并未为POD定义拷贝构造函数
+     POD pod1 = new POD;
+     //编译器并未为POD定义析构函数
+     delete pod1;
+     ```
+
+   + C++并不支持弱符号（未初始化的全局符号）：因为对象的定义存在构造函数的隐式调用，即初始化；因此C和C++的一个差异就在于，.bss在C++中相对地不重要，C++的所有全局对象都被当做已初始化的数据对待。
+
+2. 构造语义学：构造函数扩充操作：构造函数可能内含大量的隐藏码，因为编译器会扩充每一个构造函数，扩充程度视类的继承体系而定。一般而言编译器所做的扩充操作大约如下：
+   1. 记录在member initialization list中的数据成员初始化操作会被放进构造函数体，并以成员的声明顺序为顺序。
+   2. 如果有一个成员并没有出现在member initialization list中，但它有一个默认构造函数，那么该默认构造函数必须被调用。
+   3. 在那之前，vptr(s)必须被设定初值。
+   4. 在那之前，所有上一层的基类构造函数都必须被调用，以基类声明顺序为顺序。（与member initialization list中的顺序没关联）
+      1. 如果基类被列于member initialization list中，那么任何明确指定的参数都应该传递过去；否则，而它有默认构造函数，那么就调用之。
+      2. 如果基类是多重继承下的第二或后继的基类，那么this指针必须有所调整。
+   5. 在那之前，所有虚基类构造函数必须被调用，从左到右，从最深到最浅。
+      1. 如果虚基类被列于member initialization list中，那么任何明确指定的参数都应该传递过去；否则，而它有默认构造函数，那么就调用之。
+      2. 此外，当前类对象中的每一个虚基类子对象的类偏移必须在运行期可被存取。
+      3. 虚基类子对象的构造函数只能在当前类对象的构造函数中被调用，而不能在上一层基类子对象中被重复调用。这需要一个标志位判断当前构造的子对象是否处于继承体系的最底端。
+         + 当构造PVertex对象时，Point子对象的构造函数只能在PVertex子对象的构造函数中被显式调用，而不能在Vertex3d子对象的构造函数中被重复调用。
+         + ![图](./images/5虚继承体系.png)
+
+3. 构造语义学：vptr(s)初始化语义学
+
+   + 在上述虚拟继承体系下，初始化一个PVertex对象时，构造函数的调用顺序为：
+
+     + ![图](./images/5虚拟继承构造函数调用流程.png)
+
+   + 构造函数的执行算法通常如下：
+
+     1. 在派生类构造函数中，所有虚基类以及上一层基类的构造函数会被调用；
+     2. 上述完成之后，对象的vptr(s)被初始化，指向相关的vtbl(s)。
+     3. 如果有member initialization list的话，将在构造函数体内扩展开来，这必须在vptr被设定之后才进行，以免有虚函数被调用。
+     4. 最后，执行用户程序代码
+
+   + ```c++
+     PVertex* PVertex::PVertex(PVertex* this, bool __most_derived, float x, float y, float z){
+         //条件式地调用虚基类构造函数
+         if(__most_derived != false)
+             this->Point::Point(x, y);
+         //无条件地调用上一层基类构造函数
+         this->Vertex3d::Vertex3d(x, y, z);
+         //将相关的vptrs初始化
+         this->__vptr_PVertex = __vtbl_PVertex;
+         this->__vptr_Point_PVertex = __vtbl_Point_PVertex;
+         //执行用户程序代码，如虚函数
+        	...
+         //传回被构造的对象
+         return this;
+     }
+     ```
+
+   + 在类构造函数的member initialization list中调用该类的一个虚函数，安全吗？
+
+     + vptr保证能够在member initialization list被扩展之前由编译器正确设定好，但是函数本身可能还得依赖未被设立初值的成员，所以在语义上这可能不安全。
+
+4. 析构函数语义学
+
+   + 编译器什么时候会为类声明、定义**析构函数**？
+     + **声明（declare）**：如果用户程序没有声明**析构函数**，那么编译器会声明一个implicite**析构函数**，这样的声明是trivial（无用的）。
+     + **定义（define）**：只有当编译器需要声明的implicite**析构函数**执行某些编译器所需的行动，这时编译器会在需要调用**析构函数**的地方开始**定义**析构函数。这样的定义是nontrivial（有用的）。
+     + 注意：**定义**只发生在编译器需要它的时候，而不是用户程序需要的时候，而且被合成出来的析构函数只执行编译器所需的行动。
+   + 什么情况下编译器需要对象的**析构函数**完成某些必需的操作？
+     + 对象含有成员对象，且成员对象有定义**析构函数**；
+     + 对象继承自基对象，基对象有定义**析构函数**；
+     + 注意：对象自身持有某些动态内存分配的数据成员需要释放空间，这并不由编译器负责，这种情况下编译器不会定义nontrivial的析构函数，就算定义了，也不会执行这样的释放空间操作。
+
+## 第6章 运行期语义学（The Semantics of Runtime）
+
+1. 一般而言我们会把对象尽可能放置在使用它的那个程序区段附近，这样做可以节省不必要的对象构造和析构操作。为什么？
+
+   + 局部对象的生命期从构造完成开始，到局部区段结束，对象被析构为止。
+
+   + 如果局部区段有多个多个结束点，析构函数必须在每个结束点之前被调用。
+
+     + ```  c++
+       {
+           Point point;
+           //构造函数在这里被调用
+           switch(int(point.x())){
+           case -1;
+               ...
+               //析构函数在这里必须被调用
+               return;
+           case 0:
+               ...
+               //析构函数在这里必须被调用
+               return;
+           default:
+               ...
+               //析构函数在这里必须被调用
+               return;
+           }
+       }
+       ```
+
+2. 不同对象的构造与析构
+   + 全局对象的构造与析构：C++保证全局对象在main()之前被构造，在main()结束时被析构。
+     + 为每个编译单元产生一个\_sti()函数（static initialization）：调用所有全局对象的构造函数；产生一个\_std()函数（static deallocation）：调用所有全局对象的析构函数。
+     + 链接器链接时收集所有的\_sti()和\_std()函数放在一起，由C++运行时库负责执行。
+   + 局部静态对象的构造与析构：C++保证局部静态对象的的构造、析构函数都只会执行一次，虽然对象所在代码区块可能会被执行多次（函数）。
+     + 构造方式类似于单例模式，在第一次使用该对象时初始化。
+     + 析构方式没看懂
+   + 对象数组：
+     + 对于既没有定义构造函数也没有定义析构函数的对象组成的数组，编译器并不需要做任何额外的工作；
+     + 否则，编译器通过C++运行时库函数vec_new()、vec_delete()（对cfront编译器而言）将默认构造函数、析构函数执行于每一个元素之上。
+   
+3. new和delete运算符以及临时性对象//TODO
+
+## 第7章 站在对象模型的顶端（On the Cusp of the Object Model）
+
+1. 下面是有关模板的三个主要讨论方向
+   1. 模板的声明。基本上来说就是当你声明一个template class、template class member function等等时，会发生什么事情。
+      + 编译器什么也不做，直到某条语句使用了模板类相关的成员或调用了模板函数时，编译器才会实例化模板。
+   2. 如何实例化（instantiates）出一个类以及inline nonmember，以及member template functions，这些是“每一个编译单元都会拥有一份实例”的东西。
+   3. 如何实例化（instantiates）出nonmember以及member template functions，以及static template class members，这些都是”每一个可执行文件中只需要一份实例“的东西。这也就是一般而言template所带来的问题。
+
+2. 模板中的名称决议方式
+
+   + template中，对于一个nonmember name的符号决议结果是根据这个name的使用是否与“用以实例化出该template的参数类型”有关而决定的。如果其使用互不相关，那么就以“scope of the template declaration”来决定name；如果其使用互有关联，那么就以“scope of the template instantiation来决定name。
+
+   + 但是我的实验结果与作者的说法并不相同：在**gcc version 8.1.0 (x86_64-posix-sjlj-rev0, Built by MinGW-W64 project)**与**gcc version 5.4.0 20160609 (Ubuntu 5.4.0-6ubuntu1~16.04.12)**平台上，调用*e.func()*与*e.type_dependent()*都会决议到*int foo(int)*函数上。
+
+   + ```c++
+     //test.h
+     int foo(int);
+     template<class type>
+     class Example{
+     public:
+         void func(){
+             _member = foo(_val);
+         }
+         type type_dependent(){
+             return foo(_member);
+         }
+     private:
+         int _val;
+         type _member;
+     };
+     //test.cpp
+     #include "test.h"
+     #include <iostream>
+     using namespace std;
+     
+     int foo(int val){
+         cout<<"foo(int)"<<endl;
+         return 1;
+     }
+     double foo(double val){
+         cout<<"foo(double)"<<endl;
+         return 1;
+     }
+     
+     int main(){
+         Example<double> e;
+         e.func();
+         e.type_dependent();
+         cin.get();
+     }
+     ```
+
+3. EH（Exception Handling）实现方式
+   + 欲支持eh，编译器的主要工作就是找出catch子句，以处理被丢出来的exception。
+     + 这多少需要追踪程序栈中的每一个函数的当前作用区域（包括追踪函数中的local class objects当时的情况（是否需要析构））。
+     + 同时，编译器必须提供某种查询exception objects的方法，以知道其实际类型（这直接导致某种形式的运行期类型识别，也就是RTTI）。
+     + 最后，还需要某种机制用以管理被丢出的object，包括它的产生、储存、可能的析构（如果有相关的析构函数）、清理（内存等资源释放）以及一般存取。也可能有一个以上的object同时起作用。
+   + 一般而言，eh机制需要与编译器所产生的数据结构以及运行期的一个exception library紧密合作。在程序大小与执行速度之间，编译器必须有所抉择。
+4. C++的eh实现方式
+   + 三个语句组件
+     + 一个throw子句：它在程序某处发出一个exception。被丢出去的exception可以是内建类型，也可以是自定义类型。
+     + 一个或多个catch子句：每一个catch子句都是一个exception handler。
+     + 一个try区段：将区段与catch子句关联。
+   + 当一个exception被丢出去时，控制权会从函数调用中被释放出来，并寻找一个吻合的catch子句。如果都没有吻合者，那么默认的处理例程terminate()会被调用。当控制权被放弃后，进程栈中的每一个函数调用也就被弹出，这个过程称为unwinding the stack。在每一个函数被弹出之前，函数的local class objects会被析构。
+   + 如何寻找一个吻合catch子句？
+     + 编译器为抛出的exception对象和catch子句各自产生一个**类型描述符**，即type_info。因为真正的exception是在运行期被处理，因此需要RTTI。
+     + 每一个函数会产生一个**exception表**：描述与函数相关的各区域、任何必要的清理代码（如调用local class object析构函数）、以及catch子句的位置（如果某个区域是在try区段之中）。
+     + 当一个exception被抛出时，exception object会被产生出来并通常放置在相同形式的**exception数据堆栈**中。从throw端传递给catch子句的是exception object的地址、类型描述符。
+5. RTTI
+   + dynamic_cast：动态类型转换，主要针对的是downcast。
+     + 对于指针：如果downcast是安全的，返回转换后的指针；如果不安全，返回0。
+     + 对于引用：如果downcast是安全的，返回转换后的引用；如果不安全，不能返回0，因此抛出bad_cast exception。
+   + 为什么对于引用，dynamic_cast只能抛出exception而不能返回0？
+     + 因为引用必须指向某具体对象，不存在空引用。若将一个引用设为0，会引起一个临时对象通过转换函数被构造出来。
+   + typeid运算符
