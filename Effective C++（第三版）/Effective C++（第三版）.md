@@ -936,7 +936,7 @@
 2. class关系
    1. `is-a`关系：public继承
    2. `has-a`关系：应用域的复合（composition）（***详见条款38***）
-   3. `is-implemented-in-term-of`关系：实现域的复合（***详见条款38***）
+   3. `is-implemented-in-term-of`关系：实现域的复合（***详见条款38***）以及private继承（***详见条款39***）
 
 ### 条款33 避免遮掩继承而来的名称
 
@@ -962,9 +962,46 @@
 + 将机能从成员函数移到class外部函数，带来的一个缺点是，非成员函数无法访问class的non-public成员。
 + std::function对象的行为就像一般函数指针。这样的对象可接纳*与给定之目标签名式（target signature）兼容*的所有可调用物（callable entities）。
 
+1. 文中提到的几种替代方案
+   + 使用non-virtual interface（NVI）手法，那是`Template Method`设计模式的一种特殊形式。它以public non-virtual成员函数包裹较低访问性（private或protected）的virtual函数。
+   + 将virtual函数替换为*函数指针成员变量*，这是`Strategy`设计模式的一种分解表现形式。
+   + 以std::function成员变量替换virtual函数，因而允许使用任何可调用物（callable entity）搭配一个兼容于需求的签名式。这也是`Strategy`设计模式的某种形式。
+   + 将继承体系内的virtual函数替换为另一个继承体系内的virtual函数。这是`Strategy`设计模式的传统实现手法。
+
 //TODO override和overload
 
+### 条款36 绝不重新定义继承而来的non-virtual函数
 
+**请记住**
+
++ 绝对不要重新定义继承而来的non-virtual函数。（这会导致基类的同名函数被屏蔽（可能出现某些出乎你意料的错误））
+
+### 条款37 绝不重新定义继承而来的缺省参数值
+
+**请记住**
+
++ 绝对不要重新定义一个继承而来的缺省参数值，因为缺省参数值都是静态绑定，而virtual函数——你唯一应该重写（override）的东西——却是动态绑定。
+
+1. 你只能继承两种函数：virtual和non-virtual函数。然而重新定义一个继承而来的non-virtual函数永远是错误的（***详见条款36***），所以我们可以安全地将本条款的讨论局限于“继承一个带有缺省参数值的virtual函数“。这种情况下，本条款成立的理由就非常直接而明确了：virtual函数系动态绑定，而缺省参数值却是静态绑定。
+
+2. 编译器如何静态绑定缺省参数？
+
+   + ```c++
+     void fuck(int i = 1){}
+     //源代码
+     fuck();
+     //编译器修改后的代码
+     int tmp_i = 1;
+     fuck(tmp_i);
+     ```
+
+3. 更多与缺省参数相关的讨论参见参考文献，其中知乎讨论的Google C++ Style Guide与最新版的解释已不同。
+
+参考文献
+
+[知乎问题：Google C++ Style Guide 中为什么禁止使用缺省函数参数？](https://www.zhihu.com/question/24439516)
+
+[Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html#Default_Arguments)
 
 ### 条款38 通过复合（composition）模塑出has-a或is-implemented-in-terms-of关系
 
@@ -979,3 +1016,50 @@
 
 3. 优先使用复合而不是继承。
 
+### 条款39 明智而审慎地使用private继承
+
+**请记住**
+
++ private继承意味is-implemented-in-terms-of（根据某物实现出）。（private继承意味只有实现部分被继承，接口部分应略去。）它通常比复合（composition）的级别低。但是当derived class需要访问base class的protected成员，或需要重新定义继承而来的virtual函数时，这么设计是合理的。
++ 和复合（composition）不同，private继承可以使用空基类优化。这对致力于“对象尺寸最小化”的程序库开发者而言，可能很重要。
+
+1. 空基类优化
+   + C++裁定凡是`独立（非附属）`对象都必须有非零大小，通常编译器默默安插一个char到空对象中；而继承的空基类子对象不满足上述要求，因此编译器通常可以实施空基类优化。
+
+### 条款40 明智而审慎地使用多重继承
+
+**请记住**
+
++ 多重继承比单一继承复杂。它可能导致新的歧义性，以及对virtual继承的需要。
++ virtual继承会增加大小、速度、初始化（及赋值）复杂度等成本。如果virtual base classes不带任何数据，将是最具实用价值的情况。
++ 多重继承的确有正当用途。其中一个情节涉及“public继承某个Interface class”和“private继承某个协助实现的class”的两相组合。
+
+1. virtual继承会增加大小、速度、初始化（及赋值）复杂度等成本？
+
+   + 大小：为了定位虚基类子对象Base的起始地址，派生类Base1和Base2都**可能**需要添加vptr与vtbl。
+
+   + 速度：访问虚基类的成员会增加一层间接性。
+
+   + 初始化（及赋值）复杂度：虚基类的初始化责任是由继承体系中的最底层（most derived）类负责。
+
+   + 如下所示：运行程序输出4\n16\n16\n32。（`gcc version 8.1.0 (x86_64-posix-sjlj-rev0, Built by MinGW-W64 project`)
+
+   + ```c++
+     //示例
+     class Base{ int i; };
+     class Base1 : virtual public Base{ int i1; };
+     class Base2 : virtual public Base{ int i2; };
+     class Derived : public Base1, public Base2{};
+     
+     int main(){
+         Base b;
+         Base1 b1;
+         Base2 b2;
+         Derived d;
+         cout<<sizeof b<<endl;
+         cout<<sizeof b1<<endl;
+         cout<<sizeof b2<<endl;
+         cout<<sizeof d<<endl;
+         cin.get();
+     }
+     ```
