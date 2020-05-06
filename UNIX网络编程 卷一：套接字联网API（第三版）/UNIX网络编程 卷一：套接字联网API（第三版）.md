@@ -90,6 +90,8 @@
 
    + 此时新创建的socket对象处于CLOSED状态。
 
+   + 注意：自Linux2.6.27，`type`参数就可以或上`SOCK_NONBLOCK`和`SOCK_CLOEXEC`。
+
 2. `int connect(int sockfd, const struct sockaddr* servaddr, socklen_t addrlen)`：若成功返回0，若出错则为-1.
 
    + 客户端在调用`connect`前不必非得调用`bind`，因为如果需要的话，内核会确定源IP地址，并选择一个临时端口作为源端口。
