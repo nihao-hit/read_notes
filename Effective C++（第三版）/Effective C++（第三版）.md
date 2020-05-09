@@ -185,6 +185,46 @@
      };
      ```
 
+### 条款09 绝不在构造和析构函数中调用virtual函数
+
+**请记住**
+
++ 在构造和析构期间不要调用virtual函数，因为这类调用从不下降至derived class（比起当前执行构造函数和析构函数的那层）。
+
+1. ```c++
+   class Transaction{
+   public:
+       Transaction(){
+           logTransaction();
+       }
+       virtual void logTransaction() const = 0;
+   };
+   class BuyTransaction : public Transaction{...};
+   class SellTransaction : public Transaction{...};
+   //如果在用户代码中执行这行代码，Transaction版本的logTransaction()会被调用，不能完成多态任务。
+   BuyTransaction b;
+   ```
+
+2. 解决办法是将logTransaction()改为non-virtual，然后要求derived class构造函数传递必要信息给Transaction构造函数。换句话说由于你无法使用virtual函数从base class向下调用，在构造期间，你可以藉由*令derived classes将必要的构造信息向上传递至base class构造函数*替换之而加以弥补。
+
+   + ```c++
+     class Transaction{
+     public:
+         explicit Transaction(const std::string& logInfo){
+             logTransaction(logInfo);
+         }
+         void logTransaction(const std::string& logInfo) const;
+     };
+     class BuyTransaction : public Transaction{
+     public:
+         BuyTransaction(parameters) : Transaction(createLogString(parameters)){}
+     private:
+         static std::string createLogString(parameters);
+     }
+     ```
+
+   + 注意：比起在成员初值列内给予base class所需数据，利用辅助函数创建一个值传给base class构造函数往往比较方便（也比较可读）。令此函数为static，也就不可能意外指向*初期未成熟之BuyTransaction对象内尚未初始化的成员变量*。
+
 ### 条款10 令operator=返回一个reference to *this
 
 **请记住**
@@ -253,46 +293,6 @@
 + 不要尝试以某个copying函数实现另一个copying函数。应该将共同机能放进第三个函数中，并由两个copying函数共同调用。
 
 1. 令拷贝赋值运算符调用拷贝构造函数与令拷贝构造函数调用拷贝赋值运算符都是不合理的，正确的做法是建立一个新的成员函数给两者调用。这样的函数往往是private而且常被命名为init。
-
-### 条款09 绝不在构造和析构函数中调用virtual函数
-
-**请记住**
-
-+ 在构造和析构期间不要调用virtual函数，因为这类调用从不下降至derived class（比起当前执行构造函数和析构函数的那层）。
-
-1. ```c++
-   class Transaction{
-   public:
-       Transaction(){
-           logTransaction();
-       }
-       virtual void logTransaction() const = 0;
-   };
-   class BuyTransaction : public Transaction{...};
-   class SellTransaction : public Transaction{...};
-   //如果在用户代码中执行这行代码，Transaction版本的logTransaction()会被调用，不能完成多态任务。
-   BuyTransaction b;
-   ```
-
-2. 解决办法是将logTransaction()改为non-virtual，然后要求derived class构造函数传递必要信息给Transaction构造函数。换句话说由于你无法使用virtual函数从base class向下调用，在构造期间，你可以藉由*令derived classes将必要的构造信息向上传递至base class构造函数*替换之而加以弥补。
-
-   + ```c++
-     class Transaction{
-     public:
-         explicit Transaction(const std::string& logInfo){
-             logTransaction(logInfo);
-         }
-         void logTransaction(const std::string& logInfo) const;
-     };
-     class BuyTransaction : public Transaction{
-     public:
-         BuyTransaction(parameters) : Transaction(createLogString(parameters)){}
-     private:
-         static std::string createLogString(parameters);
-     }
-     ```
-
-   + 注意：比起在成员初值列内给予base class所需数据，利用辅助函数创建一个值传给base class构造函数往往比较方便（也比较可读）。令此函数为static，也就不可能意外指向*初期未成熟之BuyTransaction对象内尚未初始化的成员变量*。
 
 ## 3 资源管理
 
@@ -540,8 +540,75 @@
 3. 如何实现类专属的swap函数？
    + 我们令class声明一个名为swap的public成员函数做真正的置换工作；然后提供一个non-member swap用来调用前者；同时将std::swap特化，也令它调用该成员函数。（注意：C++只允许对class templates偏特化（partially specialize），在function templates身上是行不通的。）
    + 用户使用时，先通过`using std::swap`令std::swap在用户空间可用，接着编译器会根据ADL规则首先查找类的专属swap，如果没有就使用std内的swap。
+   
 4. 实参依赖查找（argument-dependent lookup），又称ADL或Koenig查找：是一组对函数调用表达式（包括对重载运算符的隐式函数调用）中的无限定（即非std::swap()，而是swap()这样的函数调用）的函数名进行查找的规则。在通常无限定名字查找所考虑的作用域和命名空间之外，还在其各个实参的命名空间中查找这些函数。
+
 5. 实现//TODO: 实现有些问题
+
+   + > main.cpp:23: undefined reference to \`fuck::swap(fuck::foo&, fuck::foo&)'
+     > test.cpp:13: undefined reference to \`fuck::foo::swap(fuck::foo&)'
+     > collect2.exe: error: ld returned 1 exit status
+
+   + ```c++
+     // test.h
+     #ifndef _TEST_H_
+     #define _TEST_H_
+     
+     namespace fuck{
+     
+     class foo{
+     public:
+         void swap(foo& rhs);
+     };
+     
+     void swap(foo& lhs, foo& rhs);
+     
+     }
+     
+     #endif
+     
+     // test.cpp
+     #include "test.h"
+     #include <iostream>
+     
+     using namespace std;
+     using namespace fuck;
+     
+     void swap(foo& rhs){
+         std::cout<<"fuck::foo::swap()"<<std::endl;
+     }
+     
+     void swap(foo& lhs, foo& rhs){
+         std::cout<<"fuck::swap()"<<std::endl;
+         lhs.swap(rhs);
+     }
+     
+     // main.cpp
+     #include "test.h"
+     
+     #include <stdexcept>
+     #include <iostream>
+     #include <string>
+     
+     using namespace std;
+     using namespace fuck;
+     
+     namespace std{
+     
+     template<>
+     void swap<foo>(foo& lhs, foo& rhs){
+         cout<<"std::swap()"<<endl;
+     }
+     
+     }
+     
+     int main(){
+         using std::swap;
+         foo f1, f2;
+         swap(f1, f2);
+         std::cin.get();
+     }
+     ```
 
 ## 5 实现
 
@@ -968,8 +1035,6 @@
    + 以std::function成员变量替换virtual函数，因而允许使用任何可调用物（callable entity）搭配一个兼容于需求的签名式。这也是`Strategy`设计模式的某种形式。
    + 将继承体系内的virtual函数替换为另一个继承体系内的virtual函数。这是`Strategy`设计模式的传统实现手法。
 
-//TODO override和overload
-
 ### 条款36 绝不重新定义继承而来的non-virtual函数
 
 **请记住**
@@ -1063,3 +1128,202 @@
          cin.get();
      }
      ```
+
+## 7 模板与泛型编程
+
+//TODO
+
+## 8 定制new和delete
+
+### 条款49 了解new_handler的行为
+
+**请记住**
+
++ `set_new_handler()`允许用户指定一个函数，在内存分配无法获得满足时被调用。`
++ `nothrow new运算符`是一个颇为局限的工具，因为它只适用于`operator new`；后继的构造函数调用还是可能抛出异常。
+
+1. 当`operator new`分配函数无法满足内存申请时，它会不断调用`new_handler()`，直到找到足够内存，或者陷入死循环。因此一个设计良好的`new_handler()`函数必须做到以下事情来避免后者：
+   + 让更多内存可用：实现此策略的一个做法是，程序一开始执行就分配一大块内存，而后当`new_handler()`第一次被调用，将它们释放给程序使用。
+   + 安装另一个`new_handler()`：如果当前`new_handler()`无法取得更多可用内存，或许它知道另外哪个`new_handler()`有此能力，那就调用`set_new_handler()`安装另外那个替换自己。
+   + 设置`new_handler()`为nullptr：这样`operator new`会在内存分配不成功时抛出异常。
+   + 抛出bad_alloc（或派生自bad_alloc）的异常：这样的异常不会被`operator new`捕捉，因此会被转播到内存请求处。（适用情形应该是调用new(std::nothrow)时）。
+   + 不返回：通常调用abort()或exit()。
+
+### 条款50 了解new和delete的合理替换时机
+
+**请记住**
+
++ 有许多理由需要写个自定义的new和delete，包括改善性能、对heap运用错误进行调试、收集heap使用信息。
+
+1. 本条款的主题是，了解何时可在“全局性的”或“class专属的”基础上合理替换缺省的new和delete。
+   + **为了检测运用错误**：如果将“new所得内存”delete掉却不幸失败，会导致内存泄露；如果在“new所得内存”身上多次delete则会导致不确定行为；通过在分配区块前后放置特定的signatures可避免overrun和underrun。
+   + **为了收集动态分配内存之使用统计信息**：在一头栽进定制型new和delete之前，理当先收集你的软件如何使用其动态内存。分配区块的大小分布如何？寿命分布如何？它们倾向于以FIFO次序或LIFO次序或随机次序来分配和归还？它们的运用形态是否随时间改变，也就是说你的软件在不同的执行阶段有不同的分配/归还形态吗？任何时刻所使用的最大动态分配量（高水位）是多少？
+   + **为了增加分配和归还的速度**：泛用型分配器往往（虽然并不总是）比定制型分配器慢，特别是当定制型分配器专门针对某特定类型之对象而设计时。（Slab缓存），Class专属分配器是“区块尺寸固定”之分配器实例，例如Boost提供的Pool程序库。
+   + **为了降低缺省内存管理器带来的空间额外开销**：泛用型内存管理器往往还使用更多内存，例如以空闲链表实现的内存管理器需要链表头和尾的额外开销，又或者`operator new[]`。
+   + **为了弥补缺省分配器中的非最佳齐位**
+   + **为了将相关对象成簇集中**
+   + **为了获得非传统的行为**：例如你可能希望分配和归还共享内存（shared memory）内的区块，但唯一能够管理该内存的只有C API函数，那么写下一个定制版new和delete（很可能是placement版，***详见条款52***），你便得以为C API穿上一件C++外套。你也可以写一个自定义的`operator delete`，在其中将所有归还内存内容覆盖为0，借此增加应用程序的数据安全性。
+2. 写一个总是能够运作的内存管理器并不难，难的是它能够优良地运作。需要考虑的细节包括可移植性、齐位考虑、线程安全型……等等令人生厌的麻烦细节。真正称得上程序库者，必然稳健强固。
+
+### 条款51 编写new和delete时需固守常规
+
+**请记住**
+
++ `operator new`应该内含一个无穷循环，并在其中尝试分配内存，如果它无法满足内存需求，就该调用`new_handler()`。它也应该有能力处理0bytes申请。Class专属版本则还应该处理“比正确大小更大的（错误）申请”。（由于可能存在的继承行为）
++ `operator delete`应该在收到null指针时不做任何事。Class专属版本则还应该处理“比正确大小更大的（错误）申请”。（由于可能存在的继承行为）
+
+1. non-member `operator new`伪码
+
+   + ```c++
+     void* operator new(std::size_t size) throw(std::bad_alloc){//你的operator new可能接收额外参数，但这会违反接口一致性
+         using namespace std;
+         if(size == 0){	// 处理0byte申请，视之为1byte申请
+             size = 1;
+         }
+         while(true){
+             // 尝试分配size bytes
+             if(分配成功)
+                 return (一个指针，指向分配得来的内存);
+             // 分配失败：调用new_handler函数
+             new_handler globalHandler = get_new_handler();	// c++11
+             if(globalHandler)
+                 (*globalHandler)();
+             else
+                 throw bad_alloc();
+         }
+     }
+     ```
+
+2. member `operator new`
+
+   + 注意：为了保持接口一致性，member `operator new`应该声明为static，且由于class Base有成为基类的可能，而对Base合理的定制new行为可能并不适合于派生类，因此这种情况下的member `operator new`应该转而调用标准new行为。
+
+   + ```c++
+     class Base{
+     public:
+         static void* operator new(std::size_t size) throw(std::bad_alloc);
+         ...
+     }
+     
+     void* Base::operator new(std::size_t size) throw(std::bad_alloc){
+         if(size != sizeof(Base))			// 如果大小错误
+             return ::operator new(size);	// 令标准的operator new处理
+         ...									// 否则在这里处理
+     }
+     ```
+
+### 条款52 写了placement new也要写placement delete
+
+**请记住**
+
++ 当你写一个`placement operator new`，请确定也写出了对应的`placement operator delete`。如果没有这么做，你的程序可能会发生隐微而时断时续的内存泄漏。
++ 当你声明`placement new`和`placement delete`，请确定不要无意识（非故意）地遮掩了它们的正常版本。
+
+1. `placement new`（布置new）有两种定义：
+
+   + 广义上：如果一个`operator new`接受的参数除了一定会有的那个size_t之外还有其他用户自定义参数，这便是个所谓的`placement new`。
+   + 狭义上：特指接受一个额外指针指向已分配好的内存空间，这样的`placement new`。
+
+2. 全局替换`operator new`和`operator delete`
+
+   + ```c++
+     #include <cstdio>
+     #include <cstdlib>
+     // 函数最小集的替换：
+     void* operator new(std::size_t sz) {
+         std::printf("global op new called, size = %zu\n",sz);
+         return std::malloc(sz);
+     }
+     void operator delete(void* ptr) noexcept
+     {
+         std::puts("global op delete called");
+         std::free(ptr);
+     }
+     int main() {
+          int* p1 = new int;
+          delete p1;
+      
+          int* p2 = new int[10]; // C++11 中保证调用替换者
+          delete[] p2;
+     }
+     ```
+
+3. 类特定重载`operator new`和`operator delete`
+
+   + ```c++
+     #include <iostream>
+     // 具大小的类特定解分配函数
+     struct X {
+         static void operator delete(void* ptr, std::size_t sz)
+         {
+             std::cout << "custom delete for size " << sz << '\n';
+             ::operator delete(ptr);
+         }
+         static void operator delete[](void* ptr, std::size_t sz)
+         {
+             std::cout << "custom delete for size " << sz << '\n';
+             ::operator delete(ptr);
+         }
+     };
+     int main() {
+          X* p1 = new X;
+          delete p1;
+          X* p2 = new X[10];
+          delete[] p2;
+     }
+     ```
+
+4. `placement operator new`和`placement operator delete`
+
+   + ```c++
+     #include <stdexcept>
+     #include <iostream>
+     struct X {
+         X() { throw std::runtime_error(""); }
+         // 自定义布置 new
+         static void* operator new(std::size_t sz, bool b) {
+             std::cout << "custom placement new called, b = " << b << '\n';
+             return ::operator new(sz);
+         }
+         // 自定义布置 delete
+         static void operator delete(void* ptr, bool b)
+         {
+             std::cout << "custom placement delete called, b = " << b << '\n';
+             ::operator delete(ptr);
+         }
+     };
+     int main() {
+        try {
+          X* p1 = new (true) X;
+        } catch(const std::exception&) { }
+     }
+     ```
+
+参考文献
+
+[cppreference: operator_new](https://zh.cppreference.com/w/cpp/memory/new/operator_new)
+
+## 9 杂项讨论
+
+### 条款53 不要轻忽编译器的警告
+
+**请记住**
+
++ 严肃对待编译器发出的警告信息。努力在你的编译器的最高（最严苛）警告级别下争取“无任何警告”的荣誉。
++ 不要过度依赖编译器的报警能力，因为不同的编译器对待事情的态度并不相同。一旦移植到另一个编译器上，你原本倚赖的警告信息有可能消失。
+
+### 条款54 让自己熟悉包括TR1在内的标准程序库
+
+**请记住**
+
++ C++标准程序库的主要技能由STL、iostreams、locales组成。并包含C99标准程序库。
++ TR1添加了智能指针（例如tr1::shared_ptr）、一般化函数指针（tr1::function)、hash-based容器、正则表达式（regular expressions)以及另外10个组件的支持。
++ TR1自身只是一份规范。为获得TR1提供的好处，你需要一份实物。一个好的实物来源是Boost。
+
+### 条款55 让自己熟悉Boost
+
+**请记住**
+
++ Boost是一个社群，也是一个网站。致力于免费、源码开放、同僚复审的C++程序库开发。Boost在C++标准化过程中扮演深具影响力的角色。
++ Boost提供许多TR1组件实现品，以及其他许多程序库。
+
