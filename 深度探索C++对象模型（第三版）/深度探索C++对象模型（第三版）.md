@@ -180,7 +180,7 @@
          X x = a;			X x = b;
          ```
 
-7. 编译器会一一操作initialization list，以适当次序（成员在类中的声明顺序）在constructor之内安插初始化操作，并且在任何explicit use code之前。
+7. 编译器会一一操作initialization list，以适当次序（成员在类中的声明顺序）在constructor之内安插初始化操作，并且在任何explicit user code之前。
 
 ## 第3章 Data语义学（The Semantics of Data）
 
@@ -298,27 +298,30 @@
 ## 第4章 Function语义学（The Semantics of Function）
 
 1. 成员函数分类
+   
    + nonstatic成员函数、virtual函数、static成员函数。
 2. nonstatic成员函数调用方式：C++的设计准则之一就是：nonstatic成员函数至少必须和非成员函数有相同的效率。因此对于nonstatic成员函数，编译器通过如下步骤将其转化为一个非成员函数形式调用：
    + 改写函数的signature（函数签名），插入形参this指针。
+   
    + 将每一个对nonstatic数据成员的存取操作改为经由this指针来存取。
+   
    + 此时函数已经成为一个非成员函数，编译器通过名称修饰机制解决访问控制与名称冲突问题。
-
-```c++
-//nonstatic成员函数							 //转化为非成员函数，使用了NRVO机制
-Point3d Point3d::normalize() const{			void normalize_7Point3dFv(
-    											register const Point3d* const this, 	
-    											Point3d& _result){
-    
-    register float mag = magnitude();			register float mag = this->magnitude();			
-    Point3d normal;								_result.Point3d::Point3d();
-    
-    normal._x = _x/mag;							_result._x = this->_x/mag;
-    normal._y = _y/mag;							_result._y = this->_y/mag;	
-    normal._z = _z/mag;							_result._z = this->_z/mag;
-    return normal;								return;
-}											}
-```
+   
+   + ```c++
+     //nonstatic成员函数							 //转化为非成员函数，使用了NRVO机制
+     Point3d Point3d::normalize() const{			void normalize_7Point3dFv(
+         											register const Point3d* const this, 	
+         											Point3d& _result){
+         
+         register float mag = magnitude();			register float mag = this->magnitude();			
+         Point3d normal;								_result.Point3d::Point3d();
+         
+         normal._x = _x/mag;							_result._x = this->_x/mag;
+         normal._y = _y/mag;							_result._y = this->_y/mag;	
+         normal._z = _z/mag;							_result._z = this->_z/mag;
+         return normal;								return;
+     }											}
+     ```
 
 3. virtual成员函数调用方式：virtual函数通过对象调用时，在编译期使用与nonstatic成员函数一样的方式被决议；通过对象指针或引用表现多态时，通过vptr->vtbl在运行期被决议。
 
@@ -484,7 +487,7 @@ Point3d Point3d::normalize() const{			void normalize_7Point3dFv(
 
    + 局部对象的生命期从构造完成开始，到局部区段结束，对象被析构为止。
 
-   + 如果局部区段有多个多个结束点，析构函数必须在每个结束点之前被调用。
+   + 如果局部区段有多个结束点，析构函数必须在每个结束点之前被调用。
 
      + ```  c++
        {
