@@ -29,3 +29,4 @@
   * [Linux：网络协议栈性能优化机制](./杂记/Linux：网络协议栈性能优化机制.md)
   * [Linux：硬链接与软链接](./杂记/Linux：硬链接与软链接.md)
   * [服务端编程：Reactor与Proacter](./杂记/服务端编程：Reactor与Proacter.md)
+  * [listen_sock与conn_sock端口关系源码分析](./杂记/listen_sock与conn_sock端口关系源码分析.md)
