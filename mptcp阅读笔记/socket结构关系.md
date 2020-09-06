@@ -1,4 +1,4 @@
 # socket结构关系
 
-![socket结构关系图](./images/socket结构关系图.svg)
+<img src="./images/socket结构关系图.jpg" alt="socket结构关系图" style="zoom:;" />
 
